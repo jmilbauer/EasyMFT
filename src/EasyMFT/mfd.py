@@ -30,18 +30,18 @@ class MoralFoundationsDictionary(ABC):
             moral_scores[m] /= z
         return moral_scores
 
-class MoralFoundationsDictionary_STRICT(MoralFoundationsDictionary):
+class MFD_STRICT(MoralFoundationsDictionary):
     
-    def __init__(self, mfd_path):
-        self.mfd_path = mfd_path
+    def __init__(self, prefix_dictionary):
+        self.prefix_dictionary = prefix_dictionary
         
-    def _build_trie(self, mfd_dict):
+    def _build_trie(self, prefix_dictionary):
         root = dict()
-        for word in mfd_dict:
+        for word in prefix_dictionary:
             current_dict = root
             for letter in word:
                 current_dict = current_dict.setdefault(letter, {})
-            current_dict[self._terminal] = mfd_dict[word]
+            current_dict[self._terminal] = prefix_dictionary[word]
         return root
     
     def _search_trie(self, trie, word):
@@ -60,8 +60,7 @@ class MoralFoundationsDictionary_STRICT(MoralFoundationsDictionary):
     
     def initialize(self):
         self._terminal = '_end_'
-        self.mfd_dict = json.load(open(self.mfd_path))
-        self.trie = self._build_trie(self.mfd_dict)
+        self.trie = self._build_trie(self.prefix_dictionary)
         
     def search(self, word):
         search_result = self._search_trie(self.trie, word)
@@ -71,12 +70,12 @@ class MoralFoundationsDictionary_STRICT(MoralFoundationsDictionary):
             return {}
         
         
-class MoralFoundationsDictionary_W2V(MoralFoundationsDictionary):
+class MFD_W2V(MoralFoundationsDictionary):
     
-    def __init__(self, mfd_path, w2v_dict):
-        self.mfd = MoralFoundationsDictionary_STRICT(mfd_path)
-        self.word2vec = w2v_dict
-        self.vocabulary = list(w2v_dict.keys())
+    def __init__(self, prefix_dictionary, word2vec_dictionary):
+        self.mfd = MFD_STRICT(prefix_dictionary)
+        self.word2vec = word2vec_dictionary
+        self.vocabulary = list(self.word2vec.keys())
         
     def initialize(self):
         self.mfd.initialize()
@@ -121,5 +120,20 @@ class MoralFoundationsDictionary_W2V(MoralFoundationsDictionary):
             res[self.foundations[i]] = score
         return res
     
-MoralFoundationsDictionary.register(MoralFoundationsDictionary_STRICT)
-MoralFoundationsDictionary.register(MoralFoundationsDictionary_W2V)
+def create_MoralFoundationsDictionary(
+    method,
+    prefix_dictionary=None,
+    word2vec_dictionary=None
+):
+    assert method in ['strict', 'word2vec']
+    if method == 'strict':
+        assert prefix_dictionary is not None
+        assert word2vec_dictionary is None
+        return MFD_STRICT(prefix_dictionary)
+    elif method == 'word2vec':
+        assert prefix_dictionary is not None
+        assert word2vec_dictionary is not None
+        return MFD_W2V(prefix_dictionary, word2vec_dictionary)
+    
+MoralFoundationsDictionary.register(MFD_STRICT)
+MoralFoundationsDictionary.register(MFD_W2V)
